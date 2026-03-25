@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Suivi Gynéco</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap');
+:root{--bg:#f5f2ee;--bg2:#ede9e3;--card:#fff;--ink:#1a1714;--ink2:#5a5450;--ink3:#9c968f;--line:#e0dbd4;--green:#2d6a4f;--green-bg:#e8f4ee;--amber:#b45309;--amber-bg:#fef3c7;--red:#9b2226;--red-bg:#fde8e8;--blue:#1d4e7a;--blue-bg:#dbeafe;--purple:#6b21a8;--purple-bg:#f3e8ff;--orange:#c2410c;--orange-bg:#ffedd5;--accent:#8b5e3c;--accent2:#c9956a;--shadow:0 2px 12px rgba(0,0,0,.08);--shadow-lg:0 8px 32px rgba(0,0,0,.14);--r:14px;--rs:8px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-height:100dvh;overflow-x:hidden}
+
+/* PROFILE */
+#profileScreen{position:fixed;inset:0;background:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;padding:32px 24px}
+.ps-logo{font-family:'DM Serif Display',serif;font-size:34px;color:#fff;margin-bottom:4px}
+.ps-sub{font-size:12px;color:rgba(255,255,255,.4);margin-bottom:44px;letter-spacing:.04em;text-transform:uppercase}
+.ps-grid{width:100%;max-width:340px;display:flex;flex-direction:column;gap:10px}
+.ps-btn{width:100%;padding:16px 18px;border:none;border-radius:var(--r);cursor:pointer;display:flex;align-items:center;gap:14px;transition:transform .12s}
+.ps-btn:active{transform:scale(.97)}
+.ps-icon{font-size:26px;width:40px;text-align:center}
+.ps-label{font-weight:600;font-size:15px;display:block;text-align:left}
+.ps-desc{font-size:11px;opacity:.65;margin-top:1px;display:block;text-align:left}
+.ps-manager{background:var(--accent2);color:#fff}
+.ps-employee{background:rgba(255,255,255,.1);color:#fff}
+.ps-vet{background:var(--green);color:#fff}
+
+/* PIN */
+#pinScreen{position:fixed;inset:0;background:var(--ink);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:1001;padding:32px 24px}
+.pin-title{font-family:'DM Serif Display',serif;font-size:24px;color:#fff;margin-bottom:6px}
+.pin-sub{font-size:12px;color:rgba(255,255,255,.4);margin-bottom:32px}
+.pin-dots{display:flex;gap:14px;margin-bottom:32px}
+.pin-dot{width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.2);transition:background .15s}
+.pin-dot.filled{background:var(--accent2)}
+.pin-pad{display:grid;grid-template-columns:repeat(3,68px);gap:10px}
+.pin-key{width:68px;height:68px;border-radius:50%;border:none;background:rgba(255,255,255,.1);color:#fff;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:500;cursor:pointer;transition:background .1s}
+.pin-key:active{background:rgba(255,255,255,.25)}
+.pin-error{color:#f87171;font-size:13px;margin-top:14px;display:none}
+.pin-back{margin-top:20px;background:none;border:none;color:rgba(255,255,255,.4);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif}
+
+/* SYNC OVERLAY */
+#syncOverlay{position:fixed;inset:0;background:rgba(26,23,20,.85);z-index:2000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+#syncOverlay.show{display:flex}
+.sync-spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,.2);border-top-color:var(--accent2);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sync-msg{color:#fff;font-size:14px;font-weight:500}
+
+/* HEADER */
+.header{background:var(--ink);color:#fff;padding:14px 18px 12px;position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between}
+.header-title{font-family:'DM Serif Display',serif;font-size:20px}
+.header-meta{font-size:11px;color:rgba(255,255,255,.4);margin-top:1px;display:flex;align-items:center;gap:6px}
+.profile-pill{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.profile-pill.manager{background:rgba(201,149,106,.35)}
+.profile-pill.vet{background:rgba(45,106,79,.5)}
+.profile-pill.employee{background:rgba(255,255,255,.12)}
+.sync-dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
+.sync-dot.ok{background:#22c55e}
+.sync-dot.off{background:#f87171}
+.sync-dot.busy{background:var(--amber);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.hbtn{background:rgba(255,255,255,.1);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:background .15s}
+.hbtn:active{background:rgba(255,255,255,.25)}
+.header-right{display:flex;gap:8px;align-items:center}
+
+/* TABS */
+.tabs{display:flex;background:var(--ink);padding:0 18px 10px;gap:6px}
+.tab{flex:1;padding:7px 4px;background:rgba(255,255,255,.08);border:none;color:rgba(255,255,255,.5);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s}
+.tab.active{background:var(--accent2);color:#fff}
+
+.content{padding:14px;padding-bottom:100px}
+
+/* ALERTS */
+.alert-banner{border-radius:var(--r);padding:12px 14px;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px;border:1.5px solid transparent}
+.alert-ave{background:var(--red-bg);border-color:var(--red)}
+.alert-jumeau{background:var(--orange-bg);border-color:var(--orange)}
+.alert-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+.alert-text{flex:1;font-size:13px;line-height:1.45}
+.alert-title{font-weight:600;margin-bottom:2px}
+.alert-ave .alert-title{color:var(--red)}
+.alert-jumeau .alert-title{color:var(--orange)}
+
+/* TODAY BANNER */
+.today-banner{background:linear-gradient(135deg,var(--green),#1b4332);color:#fff;border-radius:var(--r);padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px}
+.today-count{font-family:'DM Serif Display',serif;font-size:32px;line-height:1}
+.today-label{font-size:12px;color:rgba(255,255,255,.65);margin-top:2px}
+
+.section-label{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin:18px 0 8px;padding:0 2px}
+.section-label:first-child{margin-top:0}
+
+/* MARE CARD */
+.mare-card{background:var(--card);border-radius:var(--r);margin-bottom:8px;box-shadow:var(--shadow);overflow:hidden;border:1.5px solid transparent;transition:border-color .15s}
+.mare-card.today-vet{border-color:var(--green)}
+.mare-card.overdue{border-color:var(--red)}
+.mare-card.has-alert{border-color:var(--orange)}
+.mare-header{display:flex;align-items:center;padding:12px 14px 10px;cursor:pointer;user-select:none;gap:10px}
+.mare-avatar{width:40px;height:40px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:15px;color:var(--accent);flex-shrink:0;font-style:italic}
+.mare-info{flex:1;min-width:0}
+.mare-name{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mare-meta{font-size:11px;color:var(--ink2);margin-top:3px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.tag{padding:2px 7px;border-radius:12px;font-size:10px;font-weight:600;white-space:nowrap}
+.tag-cour{background:var(--bg2);color:var(--ink2)}
+.tag-stallion{background:var(--purple-bg);color:var(--purple)}
+.tag-alert{background:var(--red-bg);color:var(--red)}
+.mare-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.badge{font-size:10px;font-weight:600;padding:3px 8px;border-radius:12px;white-space:nowrap}
+.b-vet{background:var(--green-bg);color:var(--green)}
+.b-prosta{background:var(--amber-bg);color:var(--amber)}
+.b-saillie{background:var(--blue-bg);color:var(--blue)}
+.b-lavage{background:var(--red-bg);color:var(--red)}
+.b-gestante{background:var(--green-bg);color:var(--green)}
+.b-chorulon{background:var(--purple-bg);color:var(--purple)}
+.b-attente{background:var(--bg2);color:var(--ink3)}
+.b-jumeaux{background:var(--orange-bg);color:var(--orange)}
+.chevron{color:var(--ink3);font-size:12px;transition:transform .2s;margin-top:2px}
+.mare-card.open .chevron{transform:rotate(90deg)}
+
+.last-obs{background:var(--bg);padding:7px 14px;font-size:12px;color:var(--ink2);border-top:1px solid var(--line);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.obs-date{color:var(--ink3);font-size:11px;flex-shrink:0}
+.chip{padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600}
+.chip-f{background:var(--blue-bg);color:var(--blue)}
+.chip-l{background:var(--red-bg);color:var(--red)}
+.chip-p{background:var(--amber-bg);color:var(--amber)}
+
+.mare-expanded{display:none;padding:0 14px 14px}
+.mare-card.open .mare-expanded{display:block}
+.exp-title{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink3);margin:14px 0 8px}
+
+/* QUICK ACTIONS */
+.qgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.qbtn{padding:11px 8px;border-radius:var(--rs);border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;text-align:center;line-height:1.3;transition:opacity .1s,transform .1s}
+.qbtn:active{opacity:.75;transform:scale(.97)}
+.q-saillie{background:var(--blue-bg);color:var(--blue)}
+.q-prosta{background:var(--amber-bg);color:var(--amber)}
+.q-spirale{background:var(--orange-bg);color:var(--orange)}
+.q-vet{background:var(--green-bg);color:var(--green)}
+.q-lavage{background:var(--red-bg);color:var(--red)}
+.q-chorulon{background:var(--purple-bg);color:var(--purple)}
+.q-gestante{background:var(--green-bg);color:var(--green)}
+.q-jumeaux{background:var(--orange-bg);color:var(--orange)}
+.q-ocy{background:var(--blue-bg);color:var(--blue)}
+
+/* ── DATE EDIT POPUP ── */
+.date-popup{background:var(--card);border:1.5px solid var(--amber);border-radius:var(--rs);padding:12px 14px;margin-top:8px;display:none}
+.date-popup.show{display:block}
+.date-popup-title{font-size:11px;font-weight:600;color:var(--amber);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em}
+.date-popup-row{display:flex;gap:8px;align-items:center}
+.date-popup input{flex:1;padding:8px 10px;border:1.5px solid var(--line);border-radius:var(--rs);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--ink);background:var(--bg);outline:none}
+.date-popup input:focus{border-color:var(--amber)}
+.date-popup-btn{padding:8px 14px;border:none;border-radius:var(--rs);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer}
+.dpb-ok{background:var(--amber);color:#fff}
+.dpb-cancel{background:var(--bg2);color:var(--ink2)}
+
+/* OBS FORM */
+.obs-form{background:var(--bg);border-radius:var(--rs);padding:13px;margin-top:12px}
+.obs-form-title{font-weight:600;font-size:13px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.obs-date-badge{background:var(--blue-bg);color:var(--blue);font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;cursor:pointer}
+.form-row{margin-bottom:11px}
+.form-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin-bottom:5px;display:block}
+.form-input{width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:var(--rs);font-family:'DM Sans',sans-serif;font-size:14px;background:var(--card);color:var(--ink);outline:none;transition:border-color .15s}
+.form-input:focus{border-color:var(--accent2)}
+.pill-group{display:flex;flex-wrap:wrap;gap:5px}
+.pill{padding:6px 11px;border-radius:16px;border:1.5px solid var(--line);background:var(--card);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;color:var(--ink2);transition:all .12s}
+.pill.sel{background:var(--blue-bg);border-color:var(--blue);color:var(--blue)}
+.pill.sel-a{background:var(--amber-bg);border-color:var(--amber);color:var(--amber)}
+.save-btn{width:100%;padding:13px;background:var(--ink);color:#fff;border:none;border-radius:var(--rs);font-family:'DM Serif Display',serif;font-size:15px;cursor:pointer;margin-top:12px;transition:opacity .15s}
+.save-btn:active{opacity:.8}
+
+/* SANITAIRE */
+.sani-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)}
+.sani-row:last-child{border-bottom:none}
+.sani-name{font-size:12px;font-weight:500}
+.sani-date{font-size:10px;color:var(--ink3);margin-top:1px}
+.ss{font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px}
+.ss-ok{background:var(--green-bg);color:var(--green)}
+.ss-warn{background:var(--red-bg);color:var(--red)}
+.ss-miss{background:var(--bg2);color:var(--ink3)}
+
+/* HISTORY */
+.hist-line{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px;align-items:flex-start}
+.hist-line:last-child{border-bottom:none}
+.hist-date{color:var(--ink3);font-size:11px;min-width:52px;flex-shrink:0;padding-top:1px}
+.hist-body{flex:1;color:var(--ink2);line-height:1.4}
+.hist-action{color:var(--ink);font-weight:500}
+.hist-who{font-size:10px;color:var(--ink3);margin-top:2px}
+
+/* BOTTOM SHEET */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:flex-end}
+.overlay.open{display:flex}
+.sheet{background:var(--card);width:100%;max-height:92dvh;border-radius:20px 20px 0 0;padding:18px 18px 40px;overflow-y:auto;animation:slideUp .22s ease}
+@keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
+.sheet-handle{width:36px;height:4px;background:var(--line);border-radius:2px;margin:0 auto 16px}
+.sheet-title{font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:16px}
+
+.fab{position:fixed;bottom:22px;right:18px;width:54px;height:54px;background:var(--ink);color:#fff;border:none;border-radius:50%;font-size:24px;cursor:pointer;box-shadow:var(--shadow-lg);display:flex;align-items:center;justify-content:center;z-index:150;transition:transform .15s}
+.fab:active{transform:scale(.92)}
+.fab.hidden{display:none}
+
+.search-bar{background:var(--card);border:1.5px solid var(--line);border-radius:24px;padding:9px 14px 9px 38px;font-family:'DM Sans',sans-serif;font-size:13px;width:100%;color:var(--ink);outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' fill='%239c968f' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:13px center;margin-bottom:10px;transition:border-color .15s}
+.search-bar:focus{border-color:var(--accent2)}
+.cour-filters{display:flex;gap:5px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;scrollbar-width:none}
+.cour-filters::-webkit-scrollbar{display:none}
+.cour-chip{padding:5px 12px;border-radius:16px;border:1.5px solid var(--line);background:var(--card);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;color:var(--ink2);transition:all .12s;flex-shrink:0}
+.cour-chip.active{background:var(--ink);border-color:var(--ink);color:#fff}
+
+.legend-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
+.legend-item{background:var(--card);border-radius:var(--rs);padding:9px 11px;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow)}
+.legend-code{font-weight:700;font-size:13px;min-width:26px;color:var(--accent);font-family:'DM Serif Display',serif}
+.legend-desc{color:var(--ink2);font-size:11px;line-height:1.3}
+
+.toast{position:fixed;bottom:85px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--ink);color:#fff;padding:10px 18px;border-radius:24px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;z-index:300;transition:all .22s;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.row-btns{display:flex;gap:7px;margin-top:14px}
+.row-btn{flex:1;padding:9px;border:none;border-radius:var(--rs);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer}
+.btn-edit{background:var(--bg2);color:var(--ink2)}
+.btn-delete{background:var(--red-bg);color:var(--red)}
+.empty{text-align:center;padding:36px 20px;color:var(--ink3);font-size:13px}
+.empty-icon{font-size:38px;margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<div id="profileScreen">
+  <div class="ps-logo">🐴 Gynéco</div>
+  <div class="ps-sub">Haras — Saison 2026</div>
+  <div class="ps-grid">
+    <button class="ps-btn ps-manager" onclick="selectProfile('manager')">
+      <span class="ps-icon">👑</span>
+      <span><span class="ps-label">Gestionnaire</span><span class="ps-desc">Accès complet — vous &amp; Guillaume</span></span>
+    </button>
+    <button class="ps-btn ps-employee" onclick="selectProfile('employee')">
+      <span class="ps-icon">👷</span>
+      <span><span class="ps-label">Employé</span><span class="ps-desc">Voir les juments + saisir observations</span></span>
+    </button>
+    <button class="ps-btn ps-vet" onclick="selectProfile('vet')">
+      <span class="ps-icon">🩺</span>
+      <span><span class="ps-label">Vétérinaire</span><span class="ps-desc">Listing complet + saisie médicale</span></span>
+    </button>
+  </div>
+</div>
+
+<div id="pinScreen">
+  <div class="pin-title">Code gestionnaire</div>
+  <div class="pin-sub">PIN à 4 chiffres</div>
+  <div class="pin-dots"><div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div><div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div></div>
+  <div class="pin-pad">
+    <button class="pin-key" onclick="pinKey('1')">1</button><button class="pin-key" onclick="pinKey('2')">2</button><button class="pin-key" onclick="pinKey('3')">3</button>
+    <button class="pin-key" onclick="pinKey('4')">4</button><button class="pin-key" onclick="pinKey('5')">5</button><button class="pin-key" onclick="pinKey('6')">6</button>
+    <button class="pin-key" onclick="pinKey('7')">7</button><button class="pin-key" onclick="pinKey('8')">8</button><button class="pin-key" onclick="pinKey('9')">9</button>
+    <button class="pin-key" onclick="pinKey('0')">0</button><button class="pin-key" style="grid-column:3" onclick="pinDel()">⌫</button>
+  </div>
+  <div class="pin-error" id="pinError">Code incorrect</div>
+  <button class="pin-back" onclick="backToProfiles()">← Retour</button>
+</div>
+
+<!-- Sync overlay -->
+<div id="syncOverlay">
+  <div class="sync-spinner"></div>
+  <div class="sync-msg">Chargement des données…</div>
+</div>
+
+<div class="header" id="mainHeader" style="display:none">
+  <div>
+    <div class="header-title">🐴 Gynéco</div>
+    <div class="header-meta">
+      <span class="sync-dot off" id="syncDot"></span>
+      <span id="hDate"></span>
+      <span class="profile-pill" id="pPill"></span>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="hbtn" id="addBtn" onclick="openAddSheet()" style="display:none">＋</button>
+    <button class="hbtn" onclick="manualSync()" title="Actualiser">↻</button>
+    <button class="hbtn" onclick="backToProfiles()" title="Changer de profil">⇄</button>
+  </div>
+</div>
+
+<div class="tabs" id="mainTabs" style="display:none">
+  <button class="tab active" onclick="switchTab('today',this)">Aujourd'hui</button>
+  <button class="tab" onclick="switchTab('all',this)">Toutes</button>
+  <button class="tab" id="tabAlerts" onclick="switchTab('alerts',this)">Alertes</button>
+  <button class="tab" onclick="switchTab('legend',this)">Codes</button>
+</div>
+
+<div class="content" id="mainContent" style="display:none"></div>
+<button class="fab hidden" id="fab" onclick="openAddSheet()">＋</button>
+
+<div class="overlay" id="sheetOverlay" onclick="closeSheet(event)">
+  <div class="sheet"><div class="sheet-handle"></div><div class="sheet-title" id="sheetTitle"></div><div id="sheetBody"></div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// CONFIG — MODIFIEZ ICI
+// ══════════════════════════════════════════════
+const PIN = '1234';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyfv8uzZESTZSEy2-fz-Y7CYOIdKc_F8JnogDrkP7xG4xxPr_8Pq5XPuqoIbgq5ADo/exec';
+const COURTS = ['Marcel','Principale','Étalons','18'];
+
+// ══════════════════════════════════════════════
+// STORAGE
+// ══════════════════════════════════════════════
+const KEY = 'gyneco_v3';
+function load(){try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):defaultData();}catch{return defaultData();}}
+function save(d){localStorage.setItem(KEY,JSON.stringify(d));}
+
+function defaultData(){return{mares:[
+  {id:'1',name:'Itours Brun',cour:'Marcel',stallion:'GDB',status:'vet',nextVet:today(),dob:'2014',sani:{ave:null,metrite_col:null,metrite_sinus:null,aie:null},observations:[{id:'o1',date:'2026-03-12',follicle:'47mm',patate:true,liquid:false,cervix:'ouvert',action:'saillie',note:'Patate',author:'Manager'},{id:'o2',date:'2026-03-05',follicle:'44mm',patate:false,liquid:false,cervix:'fermé',action:'prosta',note:'AVE !!',author:'Manager'}]},
+  {id:'2',name:'Nonoleta',cour:'Marcel',stallion:'GDB',status:'gestante',dg:44,dob:'2015',sani:{ave:'2026-01-15',metrite_col:'2026-01-15',metrite_sinus:'2026-01-15',aie:'2025-06-01'},observations:[{id:'o3',date:'2026-03-14',follicle:null,patate:false,liquid:false,cervix:null,action:'dg44',note:'Gestante DG44',author:'Véto'}]},
+  {id:'3',name:'Honey Sexy',cour:'Marcel',stallion:'LATROBE',status:'vet',nextVet:today(),dob:'2017',sani:{ave:'2026-02-20',metrite_col:null,metrite_sinus:null,aie:'2025-06-01'},observations:[{id:'o4',date:'2026-03-14',follicle:'30mm',patate:false,liquid:false,cervix:'mou',action:'prosta',note:'30D ++',author:'Manager'}]},
+  {id:'4',name:'Cheminee',cour:'Principale',stallion:'NIRVANA',status:'vet',nextVet:today(),dob:'2015',sani:{ave:null,metrite_col:null,metrite_sinus:null,aie:null},observations:[]},
+  {id:'5',name:'Dixon Cove',cour:'Principale',stallion:'BAILEYS TEMPTRESSE',status:'jumeaux',dob:'2017',sani:{ave:'2026-02-01',metrite_col:'2026-02-01',metrite_sinus:'2026-02-01',aie:'2025-06-01'},observations:[{id:'o6',date:'2026-03-14',follicle:null,patate:false,liquid:false,cervix:null,action:'jumeaux',note:'JUMEAUX — squeezing à faire',author:'Véto'}]},
+  {id:'6',name:'Argendor',cour:'18',stallion:'HONEY SEXY',status:'vet',nextVet:addDays(today(),2),dob:'2015',sani:{ave:'2026-02-10',metrite_col:'2026-02-10',metrite_sinus:'2026-02-10',aie:'2025-06-01'},observations:[{id:'o8',date:'2026-03-13',follicle:'35mm',patate:false,liquid:false,cervix:'ouvert',action:'saillie',note:'+O',author:'Manager'}]},
+  {id:'7',name:'Tafadhali',cour:'Étalons',stallion:'LATROBE',status:'gestante',dg:14,dob:'2008',sani:{ave:'2026-01-10',metrite_col:'2026-01-10',metrite_sinus:null,aie:'2025-06-01'},observations:[{id:'o7',date:'2026-03-14',follicle:null,patate:false,liquid:false,cervix:null,action:'dg14',note:'DG14',author:'Véto'}]},
+]};}
+
+// ══════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════
+function today(){return new Date().toISOString().slice(0,10);}
+function addDays(d,n){const dt=new Date(d+'T00:00:00');dt.setDate(dt.getDate()+n);return dt.toISOString().slice(0,10);}
+function diffDays(a,b){return Math.round((new Date(b)-new Date(a))/(864e5));}
+function fmtDate(iso){if(!iso)return'';return new Date(iso+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'});}
+function isToday(iso){return iso===today();}
+function isPast(iso){return iso&&iso<today();}
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let db=load(),profile=null,currentTab='today',openCardId=null,filterCour='all',searchQ='',pinEntry='',editingMareId=null,patateState={},obsDateState={},pendingQuickAction=null;
+
+// ══════════════════════════════════════════════
+// PROFILE / PIN
+// ══════════════════════════════════════════════
+function selectProfile(p){
+  if(p==='manager'){document.getElementById('pinScreen').style.display='flex';pinEntry='';updDots();}
+  else{profile=p;launch();}
+}
+function pinKey(k){
+  if(pinEntry.length>=4)return;
+  pinEntry+=k;updDots();
+  if(pinEntry.length===4){
+    if(pinEntry===PIN){profile='manager';document.getElementById('pinScreen').style.display='none';launch();}
+    else{document.getElementById('pinError').style.display='block';setTimeout(()=>{pinEntry='';updDots();document.getElementById('pinError').style.display='none';},1200);}
+  }
+}
+function pinDel(){pinEntry=pinEntry.slice(0,-1);updDots();}
+function updDots(){for(let i=0;i<4;i++)document.getElementById('d'+i).className='pin-dot'+(i<pinEntry.length?' filled':'');}
+function backToProfiles(){
+  document.getElementById('profileScreen').style.display='flex';
+  document.getElementById('pinScreen').style.display='none';
+  document.getElementById('mainHeader').style.display='none';
+  document.getElementById('mainTabs').style.display='none';
+  document.getElementById('mainContent').style.display='none';
+  document.getElementById('fab').classList.add('hidden');
+  profile=null;
+}
+
+function launch(){
+  document.getElementById('profileScreen').style.display='none';
+  document.getElementById('mainHeader').style.display='';
+  document.getElementById('mainTabs').style.display='';
+  document.getElementById('mainContent').style.display='';
+  const pill=document.getElementById('pPill');
+  if(profile==='manager'){pill.textContent='👑 Gestionnaire';pill.className='profile-pill manager';document.getElementById('addBtn').style.display='';document.getElementById('fab').classList.remove('hidden');}
+  else if(profile==='vet'){pill.textContent='🩺 Véto';pill.className='profile-pill vet';}
+  else{pill.textContent='👷 Employé';pill.className='profile-pill employee';}
+  document.getElementById('hDate').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'long'});
+  setSyncDot('off');
+  // ── AUTO-SYNC au démarrage ──
+  autoSync();
+}
+
+// ══════════════════════════════════════════════
+// SYNC
+// ══════════════════════════════════════════════
+function setSyncDot(s){document.getElementById('syncDot').className='sync-dot '+(s==='ok'?'ok':s==='busy'?'busy':'off');}
+
+async function autoSync(){
+  if(!SCRIPT_URL){render();return;}
+  document.getElementById('syncOverlay').classList.add('show');
+  setSyncDot('busy');
+  try{
+    const r=await fetch(SCRIPT_URL+'?action=getAllData&t='+Date.now());
+    const d=await r.json();
+    if(d.mares&&d.mares.length>0){
+      // Fusionner : garder les données Sheet, préserver sani qui peut être objet imbriqué
+      db.mares=d.mares.map(m=>({
+        ...m,
+        sani: m.sani || {ave:m.sani_ave||null,metrite_col:m.sani_metrite_col||null,metrite_sinus:m.sani_metrite_sinus||null,aie:m.sani_aie||null},
+        observations: m.observations||[]
+      }));
+      save(db);
+    }
+    setSyncDot('ok');
+  }catch{setSyncDot('off');}
+  document.getElementById('syncOverlay').classList.remove('show');
+  render();
+}
+
+async function manualSync(){
+  showToast('Actualisation…');
+  await autoSync();
+  showToast('✓ Données actualisées');
+}
+
+async function syncPost(action,payload){
+  if(!SCRIPT_URL)return;
+  setSyncDot('busy');
+  try{
+    await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({action,...payload}),headers:{'Content-Type':'application/json'}});
+    setSyncDot('ok');
+  }catch{setSyncDot('off');}
+}
+
+// ══════════════════════════════════════════════
+// ALERTS
+// ══════════════════════════════════════════════
+function getAveAlert(m){
+  if(m.status==='gestante')return null;
+  const ave=m.sani?.ave;
+  if(!ave)return{type:'missing',msg:`${m.name} — AVE manquant (obligatoire avant saillie)`};
+  const d=diffDays(ave,today());
+  if(d>28)return{type:'expired',msg:`${m.name} — AVE du ${fmtDate(ave)} : ${d}j (expire à 30j)`};
+  if(d>25)return{type:'warning',msg:`${m.name} — AVE expire dans ${30-d}j`};
+  return null;
+}
+function getAllAlerts(){
+  const a=[];
+  db.mares.forEach(m=>{
+    const av=getAveAlert(m);
+    if(av)a.push({mare:m,...av});
+    if(m.status==='jumeaux')a.push({mare:m,type:'jumeaux',msg:`${m.name} — Jumeaux détectés, squeezing à planifier`});
+  });
+  return a;
+}
+
+// ══════════════════════════════════════════════
+// RENDER HELPERS
+// ══════════════════════════════════════════════
+function initials(n){return n.trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,2);}
+function statusBadge(m){
+  if(m.status==='gestante')return`<span class="badge b-gestante">🤰 DG${m.dg||'?'}</span>`;
+  if(m.status==='jumeaux')return`<span class="badge b-jumeaux">⚠️ Jumeaux</span>`;
+  if(m.status==='saillie')return`<span class="badge b-saillie">⚡ Saillie</span>`;
+  if(m.status==='prosta')return`<span class="badge b-prosta">💉 Prosta</span>`;
+  if(m.status==='spirale')return`<span class="badge b-prosta">🌀 Spirale</span>`;
+  if(m.status==='lavage')return`<span class="badge b-lavage">🚿 Lavage</span>`;
+  if(m.status==='chorulon')return`<span class="badge b-chorulon">⚗️ Chorulon</span>`;
+  if(m.status==='vet'){
+    if(!m.nextVet)return`<span class="badge b-attente">En suivi</span>`;
+    if(isToday(m.nextVet))return`<span class="badge b-vet">🔬 Véto auj.</span>`;
+    if(isPast(m.nextVet))return`<span class="badge b-prosta">⚠️ En retard</span>`;
+    return`<span class="badge b-attente">Véto ${fmtDate(m.nextVet)}</span>`;
+  }
+  return`<span class="badge b-attente">En cour</span>`;
+}
+function lastObs(m){
+  if(!m.observations?.length)return'';
+  const o=m.observations[0];
+  let c='';
+  if(o.follicle)c+=`<span class="chip chip-f">⚪ ${o.follicle}</span>`;
+  if(o.patate)c+=`<span class="chip chip-p">🥔 Patate</span>`;
+  if(o.liquid)c+=`<span class="chip chip-l">💧 Liquide</span>`;
+  return`<div class="last-obs"><span class="obs-date">${fmtDate(o.date)}</span>${c}<span style="flex:1;color:var(--ink2)">${o.note||aLabel(o.action)||''}</span></div>`;
+}
+function aLabel(a){return{saillie:'Saillie',prosta:'Prostaglandine',spirale:'Spirale',lavage:'Lavage',chorulon:'Chorulon',ocy:'Ocytocine',vet:'Visite véto',cyto:'Cytologie',dg14:'DG14',dg21:'DG21',dg28:'DG28',dg44:'DG44',jumeaux:'Jumeaux — squeezing',pf:'Poulinage ♀',pm:'Poulinage ♂',avortement:'Avortement'}[a]||a||'';}
+function cardClass(m){
+  const av=getAveAlert(m);
+  if(m.status==='jumeaux')return'has-alert';
+  if(av?.type==='expired'||av?.type==='missing')return'has-alert';
+  if(isPast(m.nextVet)&&m.status==='vet')return'overdue';
+  if(isToday(m.nextVet)&&m.status==='vet')return'today-vet';
+  return'';
+}
+
+// ══════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════
+function render(){
+  const el=document.getElementById('mainContent');
+  if(currentTab==='today')el.innerHTML=renderToday();
+  else if(currentTab==='all')el.innerHTML=renderAll();
+  else if(currentTab==='alerts')el.innerHTML=renderAlerts();
+  else el.innerHTML=renderLegend();
+  const ac=getAllAlerts().length;
+  document.getElementById('tabAlerts').textContent=ac>0?`⚠️ ${ac}`:'Alertes';
+}
+
+function renderToday(){
+  const vt=db.mares.filter(m=>m.status!=='gestante'&&m.status!=='jumeaux'&&isToday(m.nextVet));
+  const ov=db.mares.filter(m=>m.status!=='gestante'&&m.status!=='jumeaux'&&isPast(m.nextVet));
+  const jum=db.mares.filter(m=>m.status==='jumeaux');
+  const gest=db.mares.filter(m=>m.status==='gestante');
+  const en=db.mares.filter(m=>m.status!=='gestante'&&m.status!=='jumeaux'&&!isToday(m.nextVet)&&!isPast(m.nextVet));
+  const tot=vt.length+ov.length;
+  let h=`<div class="today-banner" style="${tot===0?'background:linear-gradient(135deg,#4a5568,#2d3748)':''}">
+    <div class="today-count">${tot}</div>
+    <div><div style="font-weight:600;font-size:15px">${tot===0?'Rien à faire aujourd\'hui ✅':'jument'+(tot>1?'s':'')+' au véto'}</div>
+    <div class="today-label">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div></div>
+  </div>`;
+  if(ov.length){h+=`<div class="section-label">⚠️ En retard</div>`;h+=ov.map(m=>renderCard(m)).join('');}
+  if(vt.length){h+=`<div class="section-label">🔬 Passage véto aujourd'hui</div>`;h+=vt.map(m=>renderCard(m)).join('');}
+  if(jum.length){h+=`<div class="section-label">⚠️ Jumeaux — squeezing à planifier</div>`;h+=jum.map(m=>renderCard(m)).join('');}
+  if(en.length){h+=`<div class="section-label">🐴 En cour</div>`;h+=en.map(m=>renderCard(m)).join('');}
+  if(gest.length){h+=`<div class="section-label">🤰 Gestantes</div>`;h+=gest.map(m=>renderCard(m)).join('');}
+  return h;
+}
+
+function renderAll(){
+  const cours=['all',...COURTS];
+  let filtered=db.mares.filter(m=>{
+    const co=filterCour==='all'||m.cour===filterCour;
+    const qo=!searchQ||m.name.toLowerCase().includes(searchQ.toLowerCase())||(m.stallion||'').toLowerCase().includes(searchQ.toLowerCase());
+    return co&&qo;
+  });
+  let h=`<input class="search-bar" placeholder="Rechercher jument ou étalon…" oninput="onSearch(this.value)" value="${searchQ}">
+  <div class="cour-filters">`;
+  cours.forEach(c=>{h+=`<button class="cour-chip ${filterCour===c?'active':''}" onclick="setCour('${c}')">${c==='all'?'Toutes':c}</button>`;});
+  h+=`</div>`;
+  if(!filtered.length)return h+`<div class="empty"><div class="empty-icon">🔍</div>Aucune jument trouvée</div>`;
+  const bc={};filtered.forEach(m=>{if(!bc[m.cour])bc[m.cour]=[];bc[m.cour].push(m);});
+  Object.entries(bc).forEach(([cour,mares])=>{
+    h+=`<div class="section-label">Cour ${cour} — ${mares.length} jument${mares.length>1?'s':''}</div>`;
+    h+=mares.map(m=>renderCard(m)).join('');
+  });
+  return h;
+}
+
+function renderAlerts(){
+  const al=getAllAlerts();
+  if(!al.length)return`<div class="empty"><div class="empty-icon">✅</div>Aucune alerte — tout est à jour !</div>`;
+  let h=`<div class="section-label">⚠️ Alertes actives — ${al.length}</div>`;
+  al.forEach(a=>{
+    const j=a.type==='jumeaux';
+    h+=`<div class="alert-banner ${j?'alert-jumeau':'alert-ave'}"><div class="alert-icon">${j?'⚠️':'🧪'}</div><div class="alert-text"><div class="alert-title">${j?'Jumeaux':'Alerte AVE'}</div>${a.msg}</div></div>`;
+  });
+  return h;
+}
+
+function renderLegend(){
+  const codes=[['S','Saillie'],['O','Ovulée'],['PG','Prostaglandine'],['🌀','Spirale'],['Ocy','Ocytocine'],['PF','Poulinage ♀'],['PM','Poulinage ♂'],['🥔','Patate (follic. irr.)'],['T','Taux/Tiroir'],['*#+','Follicule ++'],['AVE','Avance de cycle'],['Cyto','Cytologie'],['CJ','Corps jaune'],['CO','Contrôle ovulation'],['DG14','Diag. gestation 14j'],['DG21','Diag. gestation 21j'],['DG28','Diag. gestation 28j'],['DG44','Diag. gestation 44j'],['JUM','Jumeaux — squeezing'],['LAV','Lavage utérin'],['CHO','Chorulon'],['PAM','Pamégrel'],['—','Pas en chaleur'],['-+','Molle'],['+','Chaleur légère'],['++','Chaleur forte'],['+++','Très forte'],['Liquide','Présence liquide'],['A','Arrivée'],['D','Départ'],['AVE sani','Artérite virale <30j'],['MTR Col','Métrite col'],['MTR Sin','Métrite sinus/fosses'],['AIE','Anémie inf. équine']];
+  let h=`<div class="section-label">Codes & abréviations</div><div class="legend-grid">`;
+  codes.forEach(([c,d])=>h+=`<div class="legend-item"><span class="legend-code">${c}</span><span class="legend-desc">${d}</span></div>`);
+  return h+`</div>`;
+}
+
+// ══════════════════════════════════════════════
+// MARE CARD
+// ══════════════════════════════════════════════
+function renderCard(m){
+  const isO=openCardId===m.id;
+  const cc=cardClass(m);
+  const av=getAveAlert(m);
+  return`<div class="mare-card ${cc} ${isO?'open':''}" id="card-${m.id}">
+    <div class="mare-header" onclick="toggleCard('${m.id}')">
+      <div class="mare-avatar">${initials(m.name)}</div>
+      <div class="mare-info">
+        <div class="mare-name">${m.name}</div>
+        <div class="mare-meta">
+          <span class="tag tag-cour">${m.cour}</span>
+          ${m.stallion?`<span class="tag tag-stallion">♂ ${m.stallion}</span>`:''}
+          ${av?`<span class="tag tag-alert">🧪 AVE!</span>`:''}
+        </div>
+      </div>
+      <div class="mare-right">${statusBadge(m)}<span class="chevron">›</span></div>
+    </div>
+    ${lastObs(m)}
+    <div class="mare-expanded">${isO?renderExp(m):''}</div>
+  </div>`;
+}
+
+function renderExp(m){
+  const canE=profile==='manager';
+  const canO=profile==='manager'||profile==='vet'||profile==='employee';
+
+  // Sanitaire
+  const saniDefs=[{k:'ave',l:'Artérite virale (AVE)',a30:true},{k:'metrite_col',l:'Métrite col',a30:false},{k:'metrite_sinus',l:'Métrite sinus & fosses',a30:false},{k:'aie',l:'AIE',a30:false}];
+  let sh=`<div class="exp-title">🧪 Prélèvements sanitaires</div><div style="background:var(--bg);border-radius:var(--rs);padding:8px 12px;margin-bottom:12px">`;
+  saniDefs.forEach(s=>{
+    const d=m.sani?.[s.k];
+    const da=d?diffDays(d,today()):null;
+    let sc='ss-miss',st='Non fait';
+    if(d){if(s.a30&&da>28){sc='ss-warn';st=`⚠️ ${da}j`;}else{sc='ss-ok';st=`✓ ${fmtDate(d)}`;}}
+    sh+=`<div class="sani-row"><div><div class="sani-name">${s.l}</div>${d?`<div class="sani-date">${fmtDate(d)}</div>`:''}</div><span class="ss ${sc}">${st}</span></div>`;
+  });
+  sh+=`</div>`;
+
+  // Actions rapides
+  let ah='';
+  if(canO){
+    ah=`<div class="exp-title">Action rapide <span style="font-size:10px;color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(enregistre aujourd'hui — modifiable ensuite)</span></div>
+    <div class="qgrid">
+      <button class="qbtn q-saillie" onclick="qAct('${m.id}','saillie')">⚡ Saillie</button>
+      <button class="qbtn q-prosta" onclick="qAct('${m.id}','prosta')">💉 Prosta</button>
+      <button class="qbtn q-spirale" onclick="qAct('${m.id}','spirale')">🌀 Spirale</button>
+      <button class="qbtn q-vet" onclick="qAct('${m.id}','vet')">🔬 Revoir véto</button>
+      <button class="qbtn q-lavage" onclick="qAct('${m.id}','lavage')">🚿 Lavage</button>
+      <button class="qbtn q-chorulon" onclick="qAct('${m.id}','chorulon')">⚗️ Chorulon</button>
+      <button class="qbtn q-ocy" onclick="qAct('${m.id}','ocy')">💊 Ocytocine</button>
+      <button class="qbtn q-gestante" onclick="qAct('${m.id}','gestante')">🤰 Gestante</button>
+      <button class="qbtn q-jumeaux" onclick="qAct('${m.id}','jumeaux')">⚠️ Jumeaux</button>
+    </div>
+    <!-- Popup de modification de date après action rapide -->
+    <div class="date-popup" id="dp-${m.id}">
+      <div class="date-popup-title">✏️ Modifier la date de cette action</div>
+      <div class="date-popup-row">
+        <input type="date" id="dp-date-${m.id}" value="${today()}">
+        <button class="date-popup-btn dpb-ok" onclick="applyDateEdit('${m.id}')">OK</button>
+        <button class="date-popup-btn dpb-cancel" onclick="cancelDateEdit('${m.id}')">✕</button>
+      </div>
+    </div>`;
+  }
+
+  // Formulaire observation complet
+  const obsDate = obsDateState[m.id] || today();
+  let fh='';
+  if(canO){
+    fh=`<div class="obs-form">
+      <div class="obs-form-title">
+        📋 Saisie observation
+        <span class="obs-date-badge" onclick="toggleObsDate('${m.id}')" title="Modifier la date">${fmtDate(obsDate)} ✏️</span>
+      </div>
+      <!-- Sélecteur de date de l'observation -->
+      <div id="obsDatePicker-${m.id}" style="display:none;margin-bottom:10px">
+        <div class="form-label">Date de l'observation</div>
+        <input class="form-input" type="date" id="obsDateInput-${m.id}" value="${obsDate}" onchange="setObsDate('${m.id}',this.value)" max="${today()}">
+        <div style="font-size:11px;color:var(--ink3);margin-top:4px">Vous pouvez choisir une date passée pour saisir l'historique</div>
+      </div>
+      <div class="form-row"><span class="form-label">Follicule</span>
+        <div class="pill-group" id="fp-${m.id}">
+          ${['25mm','30mm','35mm','38mm','40mm','42mm','44mm','45mm','47mm','50mm','55mm'].map(v=>`<button class="pill" onclick="selP(this,'fp-${m.id}')">${v}</button>`).join('')}
+          <button class="pill${patateState[m.id]?' sel-a':''}" id="patate-${m.id}" onclick="togP('${m.id}')">🥔 Patate</button>
+        </div>
+      </div>
+      <div class="form-row"><span class="form-label">Liquide</span>
+        <div class="pill-group" id="lq-${m.id}">
+          <button class="pill" onclick="selP(this,'lq-${m.id}')">Oui</button>
+          <button class="pill" onclick="selP(this,'lq-${m.id}')">Non</button>
+        </div>
+      </div>
+      <div class="form-row"><span class="form-label">Col</span>
+        <div class="pill-group" id="col-${m.id}">
+          <button class="pill" onclick="selP(this,'col-${m.id}')">— Fermé</button>
+          <button class="pill" onclick="selP(this,'col-${m.id}')">-+ Mou</button>
+          <button class="pill" onclick="selP(this,'col-${m.id}')">+ Ouvert</button>
+          <button class="pill" onclick="selP(this,'col-${m.id}')">++ Très ouvert</button>
+        </div>
+      </div>
+      <div class="form-row"><span class="form-label">Chaleurs</span>
+        <div class="pill-group" id="ch-${m.id}">
+          <button class="pill" onclick="selP(this,'ch-${m.id}')">—</button>
+          <button class="pill" onclick="selP(this,'ch-${m.id}')">-+</button>
+          <button class="pill" onclick="selP(this,'ch-${m.id}')">+</button>
+          <button class="pill" onclick="selP(this,'ch-${m.id}')">++</button>
+          <button class="pill" onclick="selP(this,'ch-${m.id}')">+++</button>
+        </div>
+      </div>
+      <div class="form-row"><span class="form-label">Action déclenchée</span>
+        <div class="pill-group" id="act-${m.id}">
+          <button class="pill sel" onclick="selP(this,'act-${m.id}')">Saillie</button>
+          <button class="pill" onclick="selP(this,'act-${m.id}')">Prosta</button>
+          <button class="pill" onclick="selP(this,'act-${m.id}')">Spirale</button>
+          <button class="pill" onclick="selP(this,'act-${m.id}')">Revoir</button>
+          <button class="pill" onclick="selP(this,'act-${m.id}')">Lavage</button>
+          <button class="pill" onclick="selP(this,'act-${m.id}')">Chorulon</button>
+          <button class="pill" onclick="selP(this,'act-${m.id}')">Ocytocine</button>
+          <button class="pill" onclick="selP(this,'act-${m.id}')">Gestante</button>
+          <button class="pill" onclick="selP(this,'act-${m.id}')">Jumeaux</button>
+        </div>
+      </div>
+      <div class="form-row"><span class="form-label">Notes</span>
+        <input class="form-input" type="text" id="note-${m.id}" placeholder="Observations libres…">
+      </div>
+      <div class="form-row"><span class="form-label">Prochain véto</span>
+        <input class="form-input" type="date" id="nv-${m.id}" value="${m.nextVet||today()}">
+      </div>
+      <button class="save-btn" onclick="saveObs('${m.id}')">Enregistrer</button>
+    </div>`;
+  }
+
+  // Historique
+  let hh='';
+  if(m.observations?.length){
+    hh=`<div class="exp-title">Historique (${m.observations.length})</div>`;
+    // Trier par date décroissante
+    const sorted=[...m.observations].sort((a,b)=>new Date(b.date)-new Date(a.date));
+    sorted.slice(0,10).forEach(o=>{
+      hh+=`<div class="hist-line">
+        <span class="hist-date">${fmtDate(o.date)}</span>
+        <div class="hist-body">
+          ${o.follicle?`<span style="color:var(--blue);font-weight:600">${o.follicle}</span> `:''}
+          ${o.patate?'🥔 ':''}${o.liquid?'💧 ':''}
+          <span class="hist-action">${aLabel(o.action)}</span>
+          ${o.note?` — ${o.note}`:''}
+          <div class="hist-who">${o.author||''}</div>
+        </div>
+      </div>`;
+    });
+  }
+
+  let eb='';
+  if(canE){eb=`<div class="row-btns"><button class="row-btn btn-edit" onclick="editMare('${m.id}')">✏️ Modifier</button><button class="row-btn btn-delete" onclick="deleteMare('${m.id}')">🗑 Supprimer</button></div>`;}
+
+  return sh+ah+fh+hh+eb;
+}
+
+// ══════════════════════════════════════════════
+// INTERACTIONS
+// ══════════════════════════════════════════════
+function toggleCard(id){
+  openCardId=openCardId===id?null:id;
+  render();
+  if(openCardId)setTimeout(()=>document.getElementById('card-'+id)?.scrollIntoView({behavior:'smooth',block:'nearest'}),60);
+}
+
+function selP(btn,gid){document.getElementById(gid)?.querySelectorAll('.pill').forEach(p=>{p.className='pill';});btn.classList.add('sel');}
+function togP(id){patateState[id]=!patateState[id];const b=document.getElementById('patate-'+id);if(b)b.className=patateState[id]?'pill sel-a':'pill';}
+
+// Date de l'observation (formulaire complet)
+function toggleObsDate(id){
+  const el=document.getElementById('obsDatePicker-'+id);
+  if(el)el.style.display=el.style.display==='none'?'block':'none';
+}
+function setObsDate(id,val){
+  obsDateState[id]=val;
+  const badge=document.querySelector(`#card-${id} .obs-date-badge`);
+  if(badge)badge.textContent=fmtDate(val)+' ✏️';
+}
+
+// Action rapide + popup de modification de date
+function qAct(mid,action){
+  const m=db.mares.find(x=>x.id===mid);
+  if(!m)return;
+  const prevStatus=m.status;
+  m.status=action;
+  if(action==='vet')m.nextVet=addDays(today(),2);
+  if(action==='gestante'){m.dg=14;m.nextVet=null;}
+  if(!m.observations)m.observations=[];
+  const obs={id:'o'+Date.now(),date:today(),follicle:null,patate:false,liquid:false,cervix:null,action,note:`→ ${aLabel(action)}`,author:profile==='vet'?'Véto':profile==='manager'?'Manager':'Employé'};
+  m.observations.unshift(obs);
+  // Stocker référence pour modifier la date si besoin
+  pendingQuickAction={mareId:mid,obsId:obs.id};
+  save(db);
+  syncPost('addObs',{obs:{...obs,mareId:mid,mareName:m.name}});
+  syncPost('updateMare',{mare:m});
+  showToast(`${m.name} → ${aLabel(action)}`);
+  // Afficher popup de modification de date
+  render();
+  setTimeout(()=>{
+    const dp=document.getElementById('dp-'+mid);
+    if(dp)dp.classList.add('show');
+  },100);
+}
+
+function applyDateEdit(mid){
+  const input=document.getElementById('dp-date-'+mid);
+  if(!input||!pendingQuickAction||pendingQuickAction.mareId!==mid)return;
+  const newDate=input.value;
+  const m=db.mares.find(x=>x.id===mid);
+  if(!m)return;
+  const obs=m.observations.find(o=>o.id===pendingQuickAction.obsId);
+  if(obs){obs.date=newDate;save(db);syncPost('updateMare',{mare:m});}
+  pendingQuickAction=null;
+  const dp=document.getElementById('dp-'+mid);
+  if(dp)dp.classList.remove('show');
+  showToast(`✓ Date modifiée : ${fmtDate(newDate)}`);
+  render();
+}
+function cancelDateEdit(mid){
+  pendingQuickAction=null;
+  const dp=document.getElementById('dp-'+mid);
+  if(dp)dp.classList.remove('show');
+}
+
+function saveObs(mid){
+  const m=db.mares.find(x=>x.id===mid);
+  if(!m)return;
+  const gv=gid=>{const el=document.getElementById(gid);const s=el?.querySelector('.sel');return s?s.textContent.trim():null;};
+  const obsDate=obsDateState[mid]||today();
+  const follicle=gv('fp-'+mid);
+  const liquid=gv('lq-'+mid)==='Oui';
+  const cervix=gv('col-'+mid);
+  const chaleur=gv('ch-'+mid);
+  const action=(gv('act-'+mid)||'vet').toLowerCase().replace(/\s+/g,'');
+  const note=document.getElementById('note-'+mid)?.value||'';
+  const nv=document.getElementById('nv-'+mid)?.value||null;
+  const patate=!!patateState[mid];
+  const obs={id:'o'+Date.now(),date:obsDate,follicle,patate,liquid,cervix,chaleur,action,note,author:profile==='vet'?'Véto':profile==='manager'?'Manager':'Employé'};
+  if(!m.observations)m.observations=[];
+  m.observations.unshift(obs);
+  // Trier par date
+  m.observations.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const am={saillie:'saillie',prosta:'prosta',spirale:'spirale',lavage:'lavage',chorulon:'chorulon',ocytocine:'ocy',gestante:'gestante',jumeaux:'jumeaux',revoir:'vet'};
+  if(am[action])m.status=am[action];
+  if(nv)m.nextVet=nv;
+  if(m.status==='gestante'){m.dg=14;m.nextVet=null;}
+  patateState[mid]=false;
+  obsDateState[mid]=today();
+  save(db);
+  syncPost('addObs',{obs:{...obs,mareId:mid,mareName:m.name}});
+  syncPost('updateMare',{mare:m});
+  showToast(`✓ Observation du ${fmtDate(obsDate)} enregistrée`);
+  openCardId=null;render();
+}
+
+function switchTab(tab,btn){currentTab=tab;openCardId=null;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');render();window.scrollTo(0,0);}
+function onSearch(q){searchQ=q;render();}
+function setCour(c){filterCour=c;render();}
+
+// ══════════════════════════════════════════════
+// ADD / EDIT MARE
+// ══════════════════════════════════════════════
+function openAddSheet(mid){
+  editingMareId=mid||null;
+  const m=mid?db.mares.find(x=>x.id===mid):null;
+  document.getElementById('sheetTitle').textContent=m?'Modifier la jument':'Nouvelle jument';
+  const co=COURTS.map(c=>`<option value="${c}" ${m?.cour===c?'selected':''}>${c}</option>`).join('');
+  document.getElementById('sheetBody').innerHTML=`
+    <div class="form-row"><span class="form-label">Nom</span><input class="form-input" id="an" value="${m?.name||''}" placeholder="Nom de la jument"></div>
+    <div class="form-row"><span class="form-label">Cour</span><select class="form-input" id="ac"><option value="">— choisir —</option>${co}</select></div>
+    <div class="form-row"><span class="form-label">Étalon destiné</span><input class="form-input" id="as" value="${m?.stallion||''}" placeholder="ex : GDB, Latrobe…"></div>
+    <div class="form-row"><span class="form-label">Année naissance</span><input class="form-input" id="ad" value="${m?.dob||''}" placeholder="ex : 2017"></div>
+    <div class="form-row"><span class="form-label">Prochain véto</span><input class="form-input" type="date" id="anv" value="${m?.nextVet||today()}"></div>
+    <div style="margin:14px 0 8px"><span class="form-label">🧪 Prélèvements sanitaires</span></div>
+    ${[{k:'ave',l:'Artérite virale (AVE)'},{k:'metrite_col',l:'Métrite col'},{k:'metrite_sinus',l:'Métrite sinus & fosses'},{k:'aie',l:'AIE'}].map(s=>`
+    <div class="form-row"><span class="form-label" style="font-size:9px">${s.l}</span>
+    <input class="form-input" type="date" id="a_${s.k}" value="${m?.sani?.[s.k]||''}"></div>`).join('')}
+    <button class="save-btn" onclick="saveMare()">${m?'Enregistrer':'Ajouter'}</button>
+    <button onclick="closeSheet()" style="width:100%;padding:11px;background:none;border:none;color:var(--ink3);font-size:13px;cursor:pointer;margin-top:6px;font-family:'DM Sans',sans-serif">Annuler</button>`;
+  document.getElementById('sheetOverlay').classList.add('open');
+}
+
+function saveMare(){
+  const n=document.getElementById('an').value.trim();
+  const c=document.getElementById('ac').value;
+  if(!n||!c){showToast('⚠️ Nom et cour requis');return;}
+  const sani={ave:document.getElementById('a_ave').value||null,metrite_col:document.getElementById('a_metrite_col').value||null,metrite_sinus:document.getElementById('a_metrite_sinus').value||null,aie:document.getElementById('a_aie').value||null};
+  if(editingMareId){
+    const m=db.mares.find(x=>x.id===editingMareId);
+    if(m){m.name=n;m.cour=c;m.stallion=document.getElementById('as').value;m.dob=document.getElementById('ad').value;m.nextVet=document.getElementById('anv').value;m.sani=sani;}
+    showToast(`✓ ${n} mise à jour`);
+    syncPost('updateMare',{mare:db.mares.find(x=>x.id===editingMareId)});
+  }else{
+    const id='m'+Date.now();
+    const nm={id,name:n,cour:c,stallion:document.getElementById('as').value,dob:document.getElementById('ad').value,status:'vet',nextVet:document.getElementById('anv').value,dg:null,sani,observations:[]};
+    db.mares.push(nm);
+    showToast(`✓ ${n} ajoutée`);
+    syncPost('addMare',{mare:nm});
+  }
+  save(db);closeSheet();render();
+}
+
+function editMare(id){openAddSheet(id);}
+function deleteMare(id){
+  const m=db.mares.find(x=>x.id===id);
+  if(!m||!confirm(`Supprimer ${m.name} ?`))return;
+  db.mares=db.mares.filter(x=>x.id!==id);
+  save(db);syncPost('deleteMare',{mareId:id});
+  openCardId=null;showToast('Supprimée');render();
+}
+function closeSheet(e){if(e&&e.target!==document.getElementById('sheetOverlay'))return;document.getElementById('sheetOverlay').classList.remove('open');editingMareId=null;}
+
+// ══════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════
+let toastT;
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2600);}
+</script>
+</body>
+</html>

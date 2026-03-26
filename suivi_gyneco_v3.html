@@ -295,7 +295,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-
 // CONFIG — MODIFIEZ ICI
 // ══════════════════════════════════════════════
 const PIN = '1234';
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxEcLOtwCPRWOPLGJlMOwVitMVzPRxzRzbek-X85wH5fgAlA62TnR6ASTW7Gt0fQ2s/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby43NQSpTrs0U32gtlqZLGvFuctklR6_S4wxwB9WElkRTrT6UttoPH_ItXeQQKqZz0/exec';
 const COURTS = ['Marcel','Principale','Étalons','18'];
 
 // ══════════════════════════════════════════════
@@ -409,16 +409,22 @@ async function syncPost(action,payload){
   if(!SCRIPT_URL)return;
   setSyncDot('busy');
   try{
-    await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({action,...payload}),headers:{'Content-Type':'application/json'}});
+    let url=SCRIPT_URL+'?action='+action+'&t='+Date.now();
+    if(payload){
+      if(payload.mare)url+='&data='+encodeURIComponent(JSON.stringify(payload.mare));
+      else if(payload.obs)url+='&data='+encodeURIComponent(JSON.stringify(payload.obs));
+      else if(payload.mareId)url+='&mareId='+encodeURIComponent(payload.mareId);
+    }
+    await fetch(url);
     setSyncDot('ok');
-  }catch{setSyncDot('off');}
+  }catch(e){setSyncDot('off');}
 }
 
 // ══════════════════════════════════════════════
 // ALERTS
 // ══════════════════════════════════════════════
 function getAveAlert(m){
-  if(m.status==='gestante')return null;
+  if(m.status==='gestante'||m.status==='saillie'||m.status==='partie')return null;
   const ave=m.sani?.ave;
   if(!ave)return{type:'missing',msg:`${m.name} — AVE manquant (obligatoire avant saillie)`};
   const d=diffDays(ave,today());
@@ -441,9 +447,19 @@ function getAllAlerts(){
 // ══════════════════════════════════════════════
 function initials(n){return n.trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,2);}
 function statusBadge(m){
-  if(m.status==='gestante')return`<span class="badge b-gestante">🤰 DG${m.dg||'?'}</span>`;
+  if(m.status==='gestante'){
+    const dgDays=m.observations?.find(o=>o.action&&o.action.startsWith('dg'));
+    const sailObs=m.observations?.find(o=>o.action==='saillie');
+    const jours=sailObs?diffDays(sailObs.date,today()):null;
+    return`<span class="badge b-gestante">🤰 DG${m.dg||'?'}${jours?` · J+${jours}`:''}</span>`;
+  }
   if(m.status==='jumeaux')return`<span class="badge b-jumeaux">⚠️ Jumeaux</span>`;
-  if(m.status==='saillie')return`<span class="badge b-saillie">⚡ Saillie</span>`;
+  if(m.status==='partie')return`<span class="badge b-attente">🚪 Partie</span>`;
+  if(m.status==='saillie'){
+    const sailObs=m.observations?.find(o=>o.action==='saillie');
+    const jours=sailObs?diffDays(sailObs.date,today()):null;
+    return`<span class="badge b-saillie">⚡ Saillie${jours?` J+${jours}`:''}</span>`;
+  }
   if(m.status==='prosta')return`<span class="badge b-prosta">💉 Prosta</span>`;
   if(m.status==='spirale')return`<span class="badge b-prosta">🌀 Spirale</span>`;
   if(m.status==='lavage')return`<span class="badge b-lavage">🚿 Lavage</span>`;
@@ -489,11 +505,12 @@ function render(){
 }
 
 function renderToday(){
-  const vt=db.mares.filter(m=>m.status!=='gestante'&&m.status!=='jumeaux'&&isToday(m.nextVet));
-  const ov=db.mares.filter(m=>m.status!=='gestante'&&m.status!=='jumeaux'&&isPast(m.nextVet));
-  const jum=db.mares.filter(m=>m.status==='jumeaux');
-  const gest=db.mares.filter(m=>m.status==='gestante');
-  const en=db.mares.filter(m=>m.status!=='gestante'&&m.status!=='jumeaux'&&!isToday(m.nextVet)&&!isPast(m.nextVet));
+  const active=db.mares.filter(m=>m.status!=='partie');
+  const vt=active.filter(m=>m.status!=='gestante'&&m.status!=='jumeaux'&&isToday(m.nextVet));
+  const ov=active.filter(m=>m.status!=='gestante'&&m.status!=='jumeaux'&&isPast(m.nextVet));
+  const jum=active.filter(m=>m.status==='jumeaux');
+  const gest=active.filter(m=>m.status==='gestante');
+  const en=active.filter(m=>m.status!=='gestante'&&m.status!=='jumeaux'&&!isToday(m.nextVet)&&!isPast(m.nextVet));
   const tot=vt.length+ov.length;
   let h=`<div class="today-banner" style="${tot===0?'background:linear-gradient(135deg,#4a5568,#2d3748)':''}">
     <div class="today-count">${tot}</div>
@@ -601,6 +618,7 @@ function renderExp(m){
       <button class="qbtn q-ocy" onclick="qAct('${m.id}','ocy')">💊 Ocytocine</button>
       <button class="qbtn q-gestante" onclick="qAct('${m.id}','gestante')">🤰 Gestante</button>
       <button class="qbtn q-jumeaux" onclick="qAct('${m.id}','jumeaux')">⚠️ Jumeaux</button>
+      <button class="qbtn" style="background:var(--bg2);color:var(--ink2)" onclick="qAct('${m.id}','partie')">🚪 Partie</button>
     </div>
     <!-- Popup de modification de date après action rapide -->
     <div class="date-popup" id="dp-${m.id}">
@@ -688,7 +706,7 @@ function renderExp(m){
     const sorted=[...m.observations].sort((a,b)=>new Date(b.date)-new Date(a.date));
     sorted.slice(0,10).forEach(o=>{
       hh+=`<div class="hist-line">
-        <span class="hist-date">${fmtDate(o.date)}</span>
+        <span class="hist-date" style="cursor:pointer" onclick="editObsDate('${m.id}','${o.id||''}')" title="Modifier la date">📅 ${fmtDate(o.date)}</span>
         <div class="hist-body">
           ${o.follicle?`<span style="color:var(--blue);font-weight:600">${o.follicle}</span> `:''}
           ${o.patate?'🥔 ':''}${o.liquid?'💧 ':''}
@@ -696,6 +714,7 @@ function renderExp(m){
           ${o.note?` — ${o.note}`:''}
           <div class="hist-who">${o.author||''}</div>
         </div>
+        ${canO?`<span style="color:var(--red);cursor:pointer;font-size:14px;padding:0 4px;flex-shrink:0" onclick="deleteObs('${m.id}','${o.id||''}')">🗑</span>`:''}
       </div>`;
     });
   }
@@ -865,6 +884,25 @@ function closeSheet(e){if(e&&e.target!==document.getElementById('sheetOverlay'))
 // ══════════════════════════════════════════════
 // TOAST
 // ══════════════════════════════════════════════
+function deleteObs(mareId,obsId){
+  const m=db.mares.find(x=>x.id===mareId);
+  if(!m||!confirm('Supprimer cette observation ?'))return;
+  m.observations=m.observations.filter(o=>o.id!==obsId);
+  save(db);syncPost('updateMare',{mare:m});
+  showToast('Observation supprimée');render();
+}
+function editObsDate(mareId,obsId){
+  const m=db.mares.find(x=>x.id===mareId);
+  if(!m)return;
+  const obs=m.observations.find(o=>o.id===obsId);
+  if(!obs)return;
+  const newDate=prompt('Nouvelle date (AAAA-MM-JJ) :',obs.date);
+  if(!newDate||!/^\d{4}-\d{2}-\d{2}$/.test(newDate)){showToast('Format invalide');return;}
+  obs.date=newDate;
+  m.observations.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  save(db);syncPost('updateMare',{mare:m});
+  showToast('✓ Date modifiée : '+fmtDate(newDate));render();
+}
 let toastT;
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2600);}
 </script>
